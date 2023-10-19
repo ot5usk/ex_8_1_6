@@ -28,13 +28,13 @@ public final class Util {
     }
 
     private static void initConnectionPool() {
-        var poolSize = PropertiesUtil.get(POOL_SIZE_KEY);
-        var size = poolSize == null ? DEFAULT_POOL_SIZE : Integer.parseInt(poolSize);
+        String poolSize = PropertiesUtil.get(POOL_SIZE_KEY);
+        int size = poolSize == null ? DEFAULT_POOL_SIZE : Integer.parseInt(poolSize);
         pool = new ArrayBlockingQueue<>(size);
         sourceConnections = new ArrayList<>();
         for (int i = 0; i < size; i++) {
-            var connection = launch();
-            var proxyConnection = (Connection)
+            Connection connection = launch();
+            Connection proxyConnection = (Connection)
                     Proxy.newProxyInstance(Util.class.getClassLoader(), new Class[]{Connection.class},
                             (proxy, method, args) -> method.getName().equals("close")
                                     ? pool.add((Connection) proxy)
@@ -65,7 +65,7 @@ public final class Util {
 
     public static void closePool() {
         try {
-            for (var sourceConnection : sourceConnections) {
+            for (Connection sourceConnection : sourceConnections) {
                 sourceConnection.close();
             }
         } catch (SQLException e) {
