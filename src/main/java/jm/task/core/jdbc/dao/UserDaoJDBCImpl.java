@@ -1,8 +1,8 @@
 package jm.task.core.jdbc.dao;
 
+import static jm.task.core.jdbc.Helper.*;
 import jm.task.core.jdbc.model.User;
 import jm.task.core.jdbc.util.Util;
-
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -23,14 +23,11 @@ public class UserDaoJDBCImpl implements UserDao {
                 age TINYINT UNSIGNED NOT NULL
                 );
                 """;
-        try (Connection connection = Util.get()) {
+        try (Connection connection = Util.get();
+             Statement statement = connection.createStatement()) {
             connection.setAutoCommit(false);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(createUsersTable);
-                connection.commit();
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
+            statement.executeUpdate(createUsersTable);
+            connection.commit();
             connection.setAutoCommit(true);
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -42,14 +39,11 @@ public class UserDaoJDBCImpl implements UserDao {
         String dropUsersTable = """
                 DROP TABLE IF EXISTS users;
                 """;
-        try (Connection connection = Util.get()) {
+        try (Connection connection = Util.get();
+             Statement statement = connection.createStatement()) {
             connection.setAutoCommit(false);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(dropUsersTable);
-                connection.commit();
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
+            statement.executeUpdate(dropUsersTable);
+            connection.commit();
             connection.setAutoCommit(true);
         } catch (SQLException e) {
             throw new RuntimeException(e);
@@ -60,23 +54,22 @@ public class UserDaoJDBCImpl implements UserDao {
     public void saveUser(String name, String lastName, byte age) {
         String saveUser = "INSERT INTO users (name, lastName, age) VALUES (?, ?, ?);";
         String result = String.format("User с именем – '%s' добавлен в базу данных", name);
-        try (Connection connection = Util.get()) {
-            connection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement = connection.prepareStatement(saveUser)) {
-                preparedStatement.setString(1, name);
-                preparedStatement.setString(2, lastName);
-                preparedStatement.setByte(3, age);
-                preparedStatement.executeUpdate();
-                connection.commit();
-                System.out.println(result);
-            } catch (SQLException e) {
-                System.out.println("-> rollback");
-                connection.rollback();
-                connection.setAutoCommit(true);
-                throw new RuntimeException(e);
-            }
-            connection.setAutoCommit(true);
+        Connection tempConnection = null;
+        try (Connection connection = Util.get();
+             PreparedStatement preparedStatement = connection.prepareStatement(saveUser)) {
+            tempConnection = connection;
+            tempConnection.setAutoCommit(false);
+            preparedStatement.setString(1, name);
+            preparedStatement.setString(2, lastName);
+            preparedStatement.setByte(3, age);
+            preparedStatement.executeUpdate();
+            tempConnection.commit();
+            tempConnection.setAutoCommit(true);
+            System.out.println(result);
         } catch (SQLException e) {
+            rollback(tempConnection);
+            System.out.println("-> rollback");
+            setAutoCommitTrue(tempConnection);
             throw new RuntimeException(e);
         }
     }
@@ -84,20 +77,19 @@ public class UserDaoJDBCImpl implements UserDao {
     @Override
     public void removeUserById(long id) {
         String removeUserById = "DELETE FROM users WHERE id = ?";
-        try (Connection connection = Util.get()) {
-            connection.setAutoCommit(false);
-            try (PreparedStatement preparedStatement = connection.prepareStatement(removeUserById)) {
-                preparedStatement.setLong(1, id);
-                preparedStatement.executeUpdate();
-                connection.commit();
-            } catch (SQLException e) {
-                System.out.println("-> rollback");
-                connection.rollback();
-                connection.setAutoCommit(true);
-                throw new RuntimeException(e);
-            }
-            connection.setAutoCommit(true);
+        Connection tempConnection = null;
+        try (Connection connection = Util.get();
+             PreparedStatement preparedStatement = connection.prepareStatement(removeUserById)) {
+            tempConnection = connection;
+            tempConnection.setAutoCommit(false);
+            preparedStatement.setLong(1, id);
+            preparedStatement.executeUpdate();
+            tempConnection.commit();
+            tempConnection.setAutoCommit(true);
         } catch (SQLException e) {
+            rollback(tempConnection);
+            System.out.println("-> rollback");
+            setAutoCommitTrue(tempConnection);
             throw new RuntimeException(e);
         }
     }
@@ -127,22 +119,20 @@ public class UserDaoJDBCImpl implements UserDao {
     @Override
     public void cleanUsersTable() {
         String cleanUsersTable = "TRUNCATE TABLE live.users;";
-        try (Connection connection = Util.get()) {
-            connection.setAutoCommit(false);
-            try (Statement statement = connection.createStatement()) {
-                statement.executeUpdate(cleanUsersTable);
-                connection.commit();
-            } catch(SQLException e) {
-                connection.rollback();
-                System.out.println("-> rollback");
-                connection.setAutoCommit(true);
-                throw new RuntimeException(e);
-            }
-            connection.setAutoCommit(true);
+        Connection tempConnection = null;
+        try (Connection connection = Util.get();
+             Statement statement = connection.createStatement()) {
+            tempConnection = connection;
+            tempConnection.setAutoCommit(false);
+            statement.executeUpdate(cleanUsersTable);
+            tempConnection.commit();
+            tempConnection.setAutoCommit(true);
         } catch (SQLException e) {
+            rollback(tempConnection);
+            System.out.println("-> rollback");
+            setAutoCommitTrue(tempConnection);
             throw new RuntimeException(e);
         }
     }
-
 
 }
